@@ -76,6 +76,36 @@ impl SHA256 {
         for i in 0..8 {
             self.state[i] = self.state[i].wrapping_add(h[i]);
         }
+        self.completed_data_blocks += 1;
+    }
+
+    pub fn update(&mut self, data: &[u8]) {
+        let mut len = data.len();
+        let mut offset = 0;
+
+        if self.num_pending > 0 && self.num_pending + len >= 64 {
+            &self.pending[self.num_pending..].copy_from_slice(&data[..64 - self.num_pending]);
+            let temp = self.pending;
+            self.push(&temp);
+            offset = 64 - self.num_pending;
+            len -= offset;
+            self.num_pending = 0;
+        }
+
+        let data_blocks = len / 64;
+        let remain = len % 64;
+        for _ in 0..data_blocks {
+            self.push(
+                unsafe { transmute::<_, (&[u8; 64], u64)>(&data[offset..offset + 64]).0 }
+            );
+            offset += 64;
+        }
+
+        if remain > 0 {
+            &self.pending[self.num_pending..self.num_pending + remain]
+                .copy_from_slice(&data[offset..]);
+        }
+        self.num_pending += remain;
     }
 
     pub fn state(&self) -> [u32; 8] { self.state }
@@ -86,6 +116,15 @@ mod tests {
     use super::*;
     use ring::digest;
 
+    #[allow(dead_code)]
+    struct Context {
+        state: [u64; digest::MAX_CHAINING_LEN / 8],
+        completed_data_blocks: u64,
+        pending: [u8; digest::MAX_BLOCK_LEN],
+        num_pending: usize,
+        pub algorithm: &'static digest::Algorithm,
+    }
+
     fn flip32(data: &mut [u8]) -> &[u8] {
         let len = data.len();
         assert_eq!(len % 4, 0);
@@ -93,29 +132,39 @@ mod tests {
         data
     }
 
-    #[test]
-    fn state() {
-        let mut data = *b"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b";
-
-        let mut sha256 = SHA256::new();
-        sha256.push(&data);
-
-        #[allow(dead_code)]
-        struct Context {
-            state: [u64; digest::MAX_CHAINING_LEN / 8],
-            completed_data_blocks: u64,
-            pending: [u8; digest::MAX_BLOCK_LEN],
-            num_pending: usize,
-            pub algorithm: &'static digest::Algorithm,
-        }
-
-        let mut ctx = digest::Context::new(&digest::SHA256);
-        ctx.update(flip32(data.as_mut()));
+    fn get_state(ctx: &digest::Context) -> [u32; 8] {
 
         let mut state = [0u32; 8];
         state.copy_from_slice(
-            unsafe { &transmute::<_, [u32; 16]>(transmute::<_, Context>(ctx).state)[..8] }
+            unsafe { &transmute::<_, [u32; 16]>(transmute::<_, &Context>(ctx).state)[..8] }
         );
-        assert_eq!(sha256.state(), state);
+        state
+    }
+
+    #[test]
+    fn state() {
+        let mut data = *b"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b";
+        let mut data1 = *b"d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666e";
+        let mut data2 = *b"ec13";
+        let mut data3 = *b"ab354e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce";
+
+        let mut sha256 = SHA256::new();
+        let mut ctx = digest::Context::new(&digest::SHA256);
+
+        sha256.update(data.as_ref());
+        ctx.update(flip32(data.as_mut()));
+        assert_eq!(sha256.state(), get_state(&ctx));
+
+        sha256.update(data1.as_ref());
+        ctx.update(flip32(data1.as_mut()));
+        assert_eq!(sha256.state(), get_state(&ctx));
+
+        sha256.update(data2.as_ref());
+        ctx.update(flip32(data2.as_mut()));
+        assert_eq!(sha256.state(), get_state(&ctx));
+
+        sha256.update(data3.as_ref());
+        ctx.update(flip32(data3.as_mut()));
+        assert_eq!(sha256.state(), get_state(&ctx));
     }
 }
