@@ -1,0 +1,10 @@
+[package]
+name = "sha256"
+version = "0.1.0"
+authors = ["nanpuyue <nanpuyue@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+
+[dev-dependencies]
+ring = "0.13.5"
