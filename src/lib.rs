@@ -109,7 +109,7 @@ impl SHA256 {
 
     pub fn finish(mut self) -> [u8; 32] {
         let data_bits = self.completed_data_blocks * 512 + self.num_pending as u64 * 8;
-        let mut temp = [0u8; 70];
+        let mut temp = [0u8; 72];
         temp[0] = 128;
 
         let offset = if self.num_pending < 56 {
