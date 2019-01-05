@@ -95,7 +95,7 @@ impl SHA256 {
         let remain = len % 64;
         for _ in 0..data_blocks {
             self.push(
-                unsafe { transmute::<_, (&[u8; 64], u64)>(&data[offset..offset + 64]).0 }
+                unsafe { transmute::<_, (&[u8; 64], usize)>(&data[offset..offset + 64]).0 }
             );
             offset += 64;
         }
