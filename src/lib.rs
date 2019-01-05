@@ -1,4 +1,4 @@
-use std::mem::transmute;
+use core::mem::transmute;
 
 static H: [u32; 8] = [
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
@@ -15,7 +15,6 @@ static K: [u32; 64] = [
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ];
 
-#[allow(dead_code)]
 pub struct SHA256 {
     state: [u32; 8],
     completed_data_blocks: u64,
@@ -38,7 +37,7 @@ impl SHA256 {
 
         let mut w = [0u32; 64];
         let data = unsafe { transmute::<_, [u32; 16]>(*data) };
-        for i in 0..16 { w[i] = data[i]; }
+        for i in 0..16 { w[i] = data[i].to_be(); }
 
         let [mut s0, mut s1, mut t1, mut t2, mut ch, mut ma]: [u32; 6];
 
@@ -108,6 +107,27 @@ impl SHA256 {
         self.num_pending += remain;
     }
 
+    pub fn finish(mut self) -> [u8; 32] {
+        let data_bits = self.completed_data_blocks * 512 + self.num_pending as u64 * 8;
+        let mut temp = [0u8; 70];
+        temp[0] = 128;
+
+        let offset = if self.num_pending < 56 {
+            56 - self.num_pending
+        } else {
+            120 - self.num_pending
+        };
+
+        &temp[offset..offset + 8].copy_from_slice(&data_bits.to_be_bytes());
+        self.update(&temp[..offset + 8]);
+
+        let mut digest = [0u32; 8];
+        for i in 0..8 {
+            digest[i] = self.state[i].to_be();
+        }
+        unsafe { transmute::<_, [u8; 32]>(digest) }
+    }
+
     pub fn state(&self) -> [u32; 8] { self.state }
 }
 
@@ -125,15 +145,7 @@ mod tests {
         pub algorithm: &'static digest::Algorithm,
     }
 
-    fn flip32(data: &mut [u8]) -> &[u8] {
-        let len = data.len();
-        assert_eq!(len % 4, 0);
-        for i in 0..len / 4 { data[i * 4..(i * 4 + 4)].reverse(); }
-        data
-    }
-
     fn get_state(ctx: &digest::Context) -> [u32; 8] {
-
         let mut state = [0u32; 8];
         state.copy_from_slice(
             unsafe { &transmute::<_, [u32; 16]>(transmute::<_, &Context>(ctx).state)[..8] }
@@ -143,28 +155,36 @@ mod tests {
 
     #[test]
     fn state() {
-        let mut data = *b"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b";
-        let mut data1 = *b"d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666e";
-        let mut data2 = *b"ec13";
-        let mut data3 = *b"ab354e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce";
+        let data = *b"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b";
+        let data1 = *b"d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666e";
+        let data2 = *b"ec13";
+        let data3 = *b"ab354e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce";
 
         let mut sha256 = SHA256::new();
         let mut ctx = digest::Context::new(&digest::SHA256);
 
         sha256.update(data.as_ref());
-        ctx.update(flip32(data.as_mut()));
+        ctx.update(data.as_ref());
         assert_eq!(sha256.state(), get_state(&ctx));
 
         sha256.update(data1.as_ref());
-        ctx.update(flip32(data1.as_mut()));
+        ctx.update(data1.as_ref());
         assert_eq!(sha256.state(), get_state(&ctx));
 
         sha256.update(data2.as_ref());
-        ctx.update(flip32(data2.as_mut()));
+        ctx.update(data2.as_ref());
         assert_eq!(sha256.state(), get_state(&ctx));
 
         sha256.update(data3.as_ref());
-        ctx.update(flip32(data3.as_mut()));
+        ctx.update(data3.as_ref());
         assert_eq!(sha256.state(), get_state(&ctx));
+
+        print!("SHA256:");
+        for i in sha256.finish().iter() {
+            print!("{:02x}", i);
+        }
+        println!();
+
+        println!("{:?}", ctx.finish());
     }
 }
