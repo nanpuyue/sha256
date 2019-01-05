@@ -155,28 +155,28 @@ mod tests {
 
     #[test]
     fn state() {
-        let data = *b"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b";
-        let data1 = *b"d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666e";
-        let data2 = *b"ec13";
-        let data3 = *b"ab354e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce";
+        let data = b"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b".as_ref();
+        let data1 = b"d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666e".as_ref();
+        let data2 = b"ec13".as_ref();
+        let data3 = b"ab354e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce".as_ref();
 
         let mut sha256 = SHA256::new();
         let mut ctx = digest::Context::new(&digest::SHA256);
 
-        sha256.update(data.as_ref());
-        ctx.update(data.as_ref());
+        sha256.update(data);
+        ctx.update(data);
         assert_eq!(sha256.state(), get_state(&ctx));
 
-        sha256.update(data1.as_ref());
-        ctx.update(data1.as_ref());
+        sha256.update(data1);
+        ctx.update(data1);
         assert_eq!(sha256.state(), get_state(&ctx));
 
-        sha256.update(data2.as_ref());
-        ctx.update(data2.as_ref());
+        sha256.update(data2);
+        ctx.update(data2);
         assert_eq!(sha256.state(), get_state(&ctx));
 
-        sha256.update(data3.as_ref());
-        ctx.update(data3.as_ref());
+        sha256.update(data3);
+        ctx.update(data3);
         assert_eq!(sha256.state(), get_state(&ctx));
 
         print!("SHA256:");
