@@ -1,3 +1,5 @@
+#![no_std]
+
 use core::mem::transmute;
 
 const H: [u32; 8] = [
