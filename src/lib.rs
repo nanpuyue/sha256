@@ -38,7 +38,7 @@ impl Sha256 {
         let mut h = *state;
 
         let mut w = [0u32; 64];
-        let data = unsafe { transmute::<_, [u32; 16]>(*data) };
+        let data = unsafe { transmute::<_, &[u32; 16]>(data) };
         for (i, v) in data.iter().enumerate() {
             w[i] = v.to_be();
         }
