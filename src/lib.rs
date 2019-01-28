@@ -1,10 +1,10 @@
 use core::mem::transmute;
 
-static H: [u32; 8] = [
+const H: [u32; 8] = [
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
 ];
 
-static K: [u32; 64] = [
+const K: [u32; 64] = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
     0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -32,14 +32,16 @@ impl SHA256 {
         }
     }
 
-    pub fn push(&mut self, data: &[u8; 64]) {
-        let mut h = self.state;
+    fn push(state: &mut [u32; 8], data: &[u8; 64]) {
+        let mut h = *state;
 
         let mut w = [0u32; 64];
         let data = unsafe { transmute::<_, [u32; 16]>(*data) };
-        for i in 0..16 { w[i] = data[i].to_be(); }
+        for (i, v) in data.iter().enumerate() {
+            w[i] = v.to_be();
+        }
 
-        let [mut s0, mut s1, mut t1, mut t2, mut ch, mut ma]: [u32; 6];
+        let [mut s0, mut s1, mut t0, mut t1, mut ch, mut ma]: [u32; 6];
 
         for i in 16..64 {
             s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
@@ -55,27 +57,26 @@ impl SHA256 {
             ma = (h[0] & h[1]) ^ (h[0] & h[2]) ^ (h[1] & h[2]);
             s0 = h[0].rotate_right(2) ^ h[0].rotate_right(13) ^ h[0].rotate_right(22);
             s1 = h[4].rotate_right(6) ^ h[4].rotate_right(11) ^ h[4].rotate_right(25);
-            t1 = h[7]
+            t0 = h[7]
                 .wrapping_add(s1)
                 .wrapping_add(ch)
                 .wrapping_add(K[i])
                 .wrapping_add(w[i]);
-            t2 = s0.wrapping_add(ma);
+            t1 = s0.wrapping_add(ma);
 
             h[7] = h[6];
             h[6] = h[5];
             h[5] = h[4];
-            h[4] = h[3].wrapping_add(t1);
+            h[4] = h[3].wrapping_add(t0);
             h[3] = h[2];
             h[2] = h[1];
             h[1] = h[0];
-            h[0] = t1.wrapping_add(t2);
+            h[0] = t0.wrapping_add(t1);
         }
 
-        for i in 0..8 {
-            self.state[i] = self.state[i].wrapping_add(h[i]);
+        for (i, v) in state.iter_mut().enumerate() {
+            *v = v.wrapping_add(h[i]);
         }
-        self.completed_data_blocks += 1;
     }
 
     pub fn update(&mut self, data: &[u8]) {
@@ -83,9 +84,9 @@ impl SHA256 {
         let mut offset = 0;
 
         if self.num_pending > 0 && self.num_pending + len >= 64 {
-            &self.pending[self.num_pending..].copy_from_slice(&data[..64 - self.num_pending]);
-            let temp = self.pending;
-            self.push(&temp);
+            self.pending[self.num_pending..].copy_from_slice(&data[..64 - self.num_pending]);
+            Self::push(&mut self.state, &self.pending);
+            self.completed_data_blocks += 1;
             offset = 64 - self.num_pending;
             len -= offset;
             self.num_pending = 0;
@@ -94,23 +95,24 @@ impl SHA256 {
         let data_blocks = len / 64;
         let remain = len % 64;
         for _ in 0..data_blocks {
-            self.push(
-                unsafe { transmute::<_, (&[u8; 64], usize)>(&data[offset..offset + 64]).0 }
-            );
+            Self::push(&mut self.state, unsafe {
+                transmute::<_, (&[u8; 64], usize)>(&data[offset..offset + 64]).0
+            });
             offset += 64;
         }
+        self.completed_data_blocks += data_blocks as u64;
 
         if remain > 0 {
-            &self.pending[self.num_pending..self.num_pending + remain]
+            self.pending[self.num_pending..self.num_pending + remain]
                 .copy_from_slice(&data[offset..]);
+            self.num_pending += remain;
         }
-        self.num_pending += remain;
     }
 
     pub fn finish(mut self) -> [u8; 32] {
         let data_bits = self.completed_data_blocks * 512 + self.num_pending as u64 * 8;
-        let mut temp = [0u8; 72];
-        temp[0] = 128;
+        let mut pending = [0u8; 72];
+        pending[0] = 128;
 
         let offset = if self.num_pending < 56 {
             56 - self.num_pending
@@ -118,17 +120,18 @@ impl SHA256 {
             120 - self.num_pending
         };
 
-        &temp[offset..offset + 8].copy_from_slice(&data_bits.to_be_bytes());
-        self.update(&temp[..offset + 8]);
+        pending[offset..offset + 8].copy_from_slice(&data_bits.to_be_bytes());
+        self.update(&pending[..offset + 8]);
 
-        let mut digest = [0u32; 8];
-        for i in 0..8 {
-            digest[i] = self.state[i].to_be();
+        for h in self.state.iter_mut() {
+            *h = h.to_be();
         }
-        unsafe { transmute::<_, [u8; 32]>(digest) }
+        unsafe { transmute::<_, [u8; 32]>(self.state) }
     }
 
-    pub fn state(&self) -> [u32; 8] { self.state }
+    pub fn state(&self) -> [u32; 8] {
+        self.state
+    }
 }
 
 #[cfg(test)]
