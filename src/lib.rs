@@ -15,14 +15,14 @@ const K: [u32; 64] = [
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ];
 
-pub struct SHA256 {
+pub struct Sha256 {
     state: [u32; 8],
     completed_data_blocks: u64,
     pending: [u8; 64],
     num_pending: usize,
 }
 
-impl SHA256 {
+impl Sha256 {
     pub fn new() -> Self {
         Self {
             state: H,
