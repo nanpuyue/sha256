@@ -1,6 +1,8 @@
 #![no_std]
 #![feature(maybe_uninit)]
+#![allow(clippy::unreadable_literal)]
 
+use core::default::Default;
 use core::mem::{transmute, MaybeUninit};
 
 const H: [u32; 8] = [
@@ -25,8 +27,8 @@ pub struct Sha256 {
     num_pending: usize,
 }
 
-impl Sha256 {
-    pub fn new() -> Self {
+impl Default for Sha256 {
+    fn default() -> Self {
         Self {
             state: H,
             completed_data_blocks: 0,
@@ -34,7 +36,9 @@ impl Sha256 {
             num_pending: 0,
         }
     }
+}
 
+impl Sha256 {
     fn update_state(state: &mut [u32; 8], data: &[u8; 64]) {
         let mut w = unsafe { MaybeUninit::<[u32; 64]>::uninitialized().into_inner() };
         for i in 0..16 {

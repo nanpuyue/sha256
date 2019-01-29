@@ -14,7 +14,7 @@ fn print_result(sum: &[u8], name: &str) {
 }
 
 fn sha256sum<R: Read>(r: &mut R) -> [u8; 32] {
-    let mut sha256 = Sha256::new();
+    let mut sha256 = Sha256::default();
 
     let mut buf = Vec::with_capacity(BUFFER_SIZE);
     unsafe {
