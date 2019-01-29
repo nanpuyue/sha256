@@ -1,6 +1,7 @@
 #![no_std]
+#![feature(maybe_uninit)]
 
-use core::mem::transmute;
+use core::mem::{transmute, MaybeUninit};
 
 const H: [u32; 8] = [
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
@@ -37,7 +38,7 @@ impl Sha256 {
     fn update_state(state: &mut [u32; 8], data: &[u8; 64]) {
         let mut h = *state;
 
-        let mut w = [0u32; 64];
+        let mut w = unsafe { MaybeUninit::<[u32; 64]>::uninitialized().into_inner() };
         let data = unsafe { transmute::<_, &[u32; 16]>(data) };
         for (i, v) in data.iter().enumerate() {
             w[i] = v.to_be();
