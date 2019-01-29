@@ -36,12 +36,11 @@ impl Sha256 {
     }
 
     fn update_state(state: &mut [u32; 8], data: &[u8; 64]) {
-        let mut h = *state;
-
         let mut w = unsafe { MaybeUninit::<[u32; 64]>::uninitialized().into_inner() };
-        let data = unsafe { transmute::<_, &[u32; 16]>(data) };
-        for (i, v) in data.iter().enumerate() {
-            w[i] = v.to_be();
+        for i in 0..16 {
+            w[i] =
+                u32::from_ne_bytes(unsafe { *(data[i * 4..i * 4 + 4].as_ptr() as *const [u8; 4]) })
+                    .to_be();
         }
 
         let [mut s0, mut s1, mut t0, mut t1, mut ch, mut ma]: [u32; 6];
@@ -55,6 +54,7 @@ impl Sha256 {
                 .wrapping_add(s1);
         }
 
+        let mut h = *state;
         for i in 0..64 {
             ch = (h[4] & h[5]) ^ (!h[4] & h[6]);
             ma = (h[0] & h[1]) ^ (h[0] & h[2]) ^ (h[1] & h[2]);
