@@ -34,7 +34,7 @@ impl Sha256 {
         }
     }
 
-    fn push(state: &mut [u32; 8], data: &[u8; 64]) {
+    fn update_state(state: &mut [u32; 8], data: &[u8; 64]) {
         let mut h = *state;
 
         let mut w = [0u32; 64];
@@ -87,7 +87,7 @@ impl Sha256 {
 
         if self.num_pending > 0 && self.num_pending + len >= 64 {
             self.pending[self.num_pending..].copy_from_slice(&data[..64 - self.num_pending]);
-            Self::push(&mut self.state, &self.pending);
+            Self::update_state(&mut self.state, &self.pending);
             self.completed_data_blocks += 1;
             offset = 64 - self.num_pending;
             len -= offset;
@@ -97,7 +97,7 @@ impl Sha256 {
         let data_blocks = len / 64;
         let remain = len % 64;
         for _ in 0..data_blocks {
-            Self::push(&mut self.state, unsafe {
+            Self::update_state(&mut self.state, unsafe {
                 transmute::<_, (&[u8; 64], usize)>(&data[offset..offset + 64]).0
             });
             offset += 64;
