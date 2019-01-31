@@ -136,6 +136,12 @@ impl Sha256 {
         unsafe { transmute::<_, [u8; 32]>(self.state) }
     }
 
+    pub fn digest(data: &[u8]) -> [u8; 32] {
+        let mut sha256 = Self::default();
+        sha256.update(data);
+        sha256.finish()
+    }
+
     pub fn state(&self) -> [u32; 8] {
         self.state
     }
