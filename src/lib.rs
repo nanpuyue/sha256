@@ -40,7 +40,7 @@ impl Default for Sha256 {
 
 impl Sha256 {
     fn update_state(state: &mut [u32; 8], data: &[u8; 64]) {
-        let mut w = unsafe { MaybeUninit::<[u32; 64]>::uninitialized().into_inner() };
+        let mut w = unsafe { MaybeUninit::<[u32; 64]>::uninitialized().into_initialized() };
         for i in 0..16 {
             w[i] =
                 u32::from_ne_bytes(unsafe { *(data[i * 4..i * 4 + 4].as_ptr() as *const [u8; 4]) })
