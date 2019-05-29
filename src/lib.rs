@@ -1,5 +1,4 @@
 #![no_std]
-#![feature(maybe_uninit)]
 #![allow(clippy::unreadable_literal)]
 
 use core::default::Default;
