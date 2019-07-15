@@ -38,6 +38,15 @@ impl Default for Sha256 {
 }
 
 impl Sha256 {
+    pub fn with_state(state: [u32; 8]) -> Self {
+        Self {
+            state,
+            completed_data_blocks: 0,
+            pending: [0u8; 64],
+            num_pending: 0,
+        }
+    }
+
     fn update_state(state: &mut [u32; 8], data: &[u8; 64]) {
         let mut w = unsafe { MaybeUninit::<[u32; 64]>::uninit().assume_init() };
         for i in 0..16 {
