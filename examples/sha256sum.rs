@@ -1,6 +1,6 @@
 use std::env;
-use std::fs;
-use std::io::{self, Read};
+use std::fs::File;
+use std::io::{stdin, Read};
 
 use sha256::Sha256;
 
@@ -23,7 +23,7 @@ fn sha256sum<R: Read>(r: &mut R) -> [u8; 32] {
 
     let mut n;
     while {
-        n = r.read(&mut buf[..BUFFER_SIZE]).unwrap();
+        n = r.read(buf.as_mut()).unwrap();
         n > 0
     } {
         sha256.update(&buf[..n]);
@@ -36,14 +36,10 @@ fn main() {
     let args = env::args();
 
     if args.len() > 1 {
-        let mut file;
-
         for path in args.skip(1) {
-            file = fs::File::open(&path).unwrap();
-            print_result(&sha256sum(&mut file), &path);
+            print_result(&sha256sum(&mut File::open(&path).unwrap()), &path);
         }
     } else {
-        let stdin = io::stdin();
-        print_result(&sha256sum(&mut stdin.lock()), "-");
+        print_result(&sha256sum(&mut stdin().lock()), "-");
     }
 }
