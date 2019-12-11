@@ -2,7 +2,7 @@
 #![allow(clippy::unreadable_literal)]
 
 use core::default::Default;
-use core::mem::{transmute, MaybeUninit};
+use core::mem::transmute;
 
 const H: [u32; 8] = [
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
@@ -48,7 +48,7 @@ impl Sha256 {
     }
 
     fn update_state(state: &mut [u32; 8], data: &[u8; 64]) {
-        let mut w = unsafe { MaybeUninit::<[u32; 64]>::uninit().assume_init() };
+        let mut w = [0; 64];
         for i in 0..16 {
             w[i] =
                 u32::from_ne_bytes(unsafe { *(data[i * 4..i * 4 + 4].as_ptr() as *const [u8; 4]) })
