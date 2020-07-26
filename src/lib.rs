@@ -2,7 +2,6 @@
 #![allow(clippy::unreadable_literal)]
 
 use core::default::Default;
-use core::mem::transmute;
 
 const H: [u32; 8] = [
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
@@ -49,17 +48,13 @@ impl Sha256 {
 
     fn update_state(state: &mut [u32; 8], data: &[u8; 64]) {
         let mut w = [0; 64];
-        for i in 0..16 {
-            w[i] =
-                u32::from_ne_bytes(unsafe { *(data[i * 4..i * 4 + 4].as_ptr() as *const [u8; 4]) })
-                    .to_be();
+        for (w, d) in w.iter_mut().zip(data.iter().step_by(4)).take(16) {
+            *w = u32::from_be_bytes(unsafe { *(d as *const u8 as *const [u8; 4]) });
         }
 
-        let [mut s0, mut s1, mut t0, mut t1, mut ch, mut ma]: [u32; 6];
-
         for i in 16..64 {
-            s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
-            s1 = w[i - 2].rotate_right(17) ^ w[i - 2].rotate_right(19) ^ (w[i - 2] >> 10);
+            let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
+            let s1 = w[i - 2].rotate_right(17) ^ w[i - 2].rotate_right(19) ^ (w[i - 2] >> 10);
             w[i] = w[i - 16]
                 .wrapping_add(s0)
                 .wrapping_add(w[i - 7])
@@ -68,16 +63,16 @@ impl Sha256 {
 
         let mut h = *state;
         for i in 0..64 {
-            ch = (h[4] & h[5]) ^ (!h[4] & h[6]);
-            ma = (h[0] & h[1]) ^ (h[0] & h[2]) ^ (h[1] & h[2]);
-            s0 = h[0].rotate_right(2) ^ h[0].rotate_right(13) ^ h[0].rotate_right(22);
-            s1 = h[4].rotate_right(6) ^ h[4].rotate_right(11) ^ h[4].rotate_right(25);
-            t0 = h[7]
+            let ch = (h[4] & h[5]) ^ (!h[4] & h[6]);
+            let ma = (h[0] & h[1]) ^ (h[0] & h[2]) ^ (h[1] & h[2]);
+            let s0 = h[0].rotate_right(2) ^ h[0].rotate_right(13) ^ h[0].rotate_right(22);
+            let s1 = h[4].rotate_right(6) ^ h[4].rotate_right(11) ^ h[4].rotate_right(25);
+            let t0 = h[7]
                 .wrapping_add(s1)
                 .wrapping_add(ch)
                 .wrapping_add(K[i])
                 .wrapping_add(w[i]);
-            t1 = s0.wrapping_add(ma);
+            let t1 = s0.wrapping_add(ma);
 
             h[7] = h[6];
             h[6] = h[5];
@@ -111,7 +106,7 @@ impl Sha256 {
         let remain = len % 64;
         for _ in 0..data_blocks {
             Self::update_state(&mut self.state, unsafe {
-                transmute::<_, (&[u8; 64], usize)>(&data[offset..offset + 64]).0
+                &*(data.as_ptr().add(offset) as *const [u8; 64])
             });
             offset += 64;
         }
@@ -141,7 +136,7 @@ impl Sha256 {
         for h in self.state.iter_mut() {
             *h = h.to_be();
         }
-        unsafe { transmute::<_, [u8; 32]>(self.state) }
+        unsafe { *(self.state.as_ptr() as *const [u8; 32]) }
     }
 
     pub fn digest(data: &[u8]) -> [u8; 32] {
